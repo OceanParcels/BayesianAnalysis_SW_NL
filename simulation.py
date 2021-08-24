@@ -418,7 +418,7 @@ for i in range(3):
                                  lon = fieldMesh_x_re,
                                  lat = fieldMesh_y_re)
     
-    output_file = pset.ParticleFile(name="results/{}.nc".format(outfile+str(i)), outputdt=timedelta(hours=24))
+    output_file = pset.ParticleFile(name="results/{}.nc".format(outfile+'release'+str(i)), outputdt=timedelta(hours=24))
       
      
     kernels = (pset.Kernel(AdvectionRK4) + pset.Kernel(StokesUV) + pset.Kernel(BeachTesting) + pset.Kernel(UnBeaching)
@@ -438,7 +438,7 @@ for i in range(3):
     pset = ParticleSet.from_particlefile(fieldset=fieldset, pclass=PlasticParticle,
                                           filename="results/{}.nc".format(outfile+str(i)), restart=True, restarttime = np.nanmin)
     
-    output_file2 = pset.ParticleFile(name="results/{}2.nc".format(outfile+str(i)), outputdt=timedelta(hours=24))
+    output_file2 = pset.ParticleFile(name="results/{}_2.nc".format(outfile+'release'+str(i)), outputdt=timedelta(hours=24))
     
     pset.execute(kernels,
                  runtime=timedelta(days=runtime_days),
