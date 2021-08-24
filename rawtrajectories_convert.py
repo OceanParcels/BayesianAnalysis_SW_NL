@@ -3,9 +3,12 @@ import numpy as np
 import pandas as pd
 
 #import raw simulation data
-release1 = xr.concat(objs=(xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_7300.nc'), xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_73002.nc')), dim='obs')
-release2 = xr.concat(objs=(xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_7301.nc'), xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_73012.nc')), dim='obs')
-release3 = xr.concat(objs=(xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_7302.nc'), xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_73022.nc')), dim='obs')
+#release from 01-01-2020 back to 01-01-2018
+release1 = xr.concat(objs=(xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_730release0.nc'), xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_730release0_2.nc')), dim='obs')
+#from 01-01-2018 back to 01-01-2016
+release2 = xr.concat(objs=(xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_730release1.nc'), xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_730release1_2.nc')), dim='obs')
+#from 01-01-2016 back to 01-01-2015
+release3 = xr.concat(objs=(xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_730release2.nc'), xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_730release2_2.nc')), dim='obs')
 
 #release1 and release2 can be concatenated directly (same size)
 #release3 has not the same amount of particle released (release for only one year)
