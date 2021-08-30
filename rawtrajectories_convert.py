@@ -3,12 +3,9 @@ import numpy as np
 import pandas as pd
 
 #import raw simulation data
-#release from 01-01-2020 back to 01-01-2018
-release1 = xr.concat(objs=(xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_730release0.nc'), xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_730release0_2.nc')), dim='obs')
-#from 01-01-2018 back to 01-01-2016
-release2 = xr.concat(objs=(xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_730release1.nc'), xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_730release1_2.nc')), dim='obs')
-#from 01-01-2016 back to 01-01-2015
-release3 = xr.concat(objs=(xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_730release2.nc'), xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_Stokes=0_730release2_2.nc')), dim='obs')
+release1 = xr.concat(objs=(xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_r1_run.nc'), xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_r1_rerun.nc')), dim='obs')
+release2 = xr.concat(objs=(xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_r2_run.nc'), xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_r2_rerun.nc')), dim='obs')
+release3 = xr.concat(objs=(xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_r3_run.nc'), xr.open_dataset(r'E:\Run_09-08_NonLin_Tides\Domburg_2020-01-01_r3_rerun.nc')), dim='obs')
 
 #release1 and release2 can be concatenated directly (same size)
 #release3 has not the same amount of particle released (release for only one year)
@@ -62,8 +59,16 @@ x = np.concatenate([x1[:,:runtime], x2[:,:runtime]])
 y = np.concatenate([y1[:,:runtime], y2[:,:runtime]])
 t = np.concatenate([week1[:,:runtime], week2[:,:runtime]])
 
+#now replace random out-of-bounds location (-17.43 lon, 62.65 lat) by NaNs
+#so that this location is not wrongfully seen as a source in post-processing
+x_r = np.around(x[:,:], decimals = 2)
+y_r = np.around(y[:,:], decimals = 2)
+oob = np.logical_and(x_r == -17.43, y_r == 62.65)
+
+x[oob] = float('nan')
+y[oob] = float('nan')
+
 #save the converted trajectories, these are used in the Bayesian framework
 np.save('x.npy', x)
 np.save('y.npy', y)
-np.save('t.npy', y)
-
+np.save('t.npy', t)
