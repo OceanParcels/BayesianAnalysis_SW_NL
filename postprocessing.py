@@ -15,7 +15,6 @@ x = np.load(r'E:\Run_09-08_NonLin_Tides\x.npy')
 y = np.load(r'E:\Run_09-08_NonLin_Tides\y.npy')
 t = (np.load(r'E:\Run_09-08_NonLin_Tides\t.npy')).astype(int)
 
-releaseweeks = 260
 releasedays = len(x)//100
 
 #load other data
@@ -242,31 +241,34 @@ def find_sourceprobs_temp(x, y, lon, lat):
     r_post_cells_nn = np.empty((52,5,375,297))
     r_post_cells_n = np.empty((52,5,375,297))
     f_post_list_n = np.empty((5,52,5))
-    f_post_list_n_year = np.empty((5,52))
+    f_post_list_n_temp = np.empty((5,52))
     c_post_list_n = np.empty((10,52,5))
-    c_post_list_n_year = np.empty((10,52))
+    c_post_list_n_temp = np.empty((10,52))
     total_p_week = np.zeros(52)
     likelihood_week = np.empty((52,5,375,297))
     #first calculate fishery probabilities using time-dependent prior
-    for j in range(len(x)//100):
+    for i in range(len(x)//100):
         #id of first particle released on that day: releaseday*100, since 100 particles are released per day
-        id1 = j*100
+        id1 = i*100
         #release date of particle (actually the beaching date)
+        #-1 since we are using it as an index
+        #add week 53 (index 52) releases to week 1 (index 0), as week 53 is not there in every year
         releaseweek = int(t[id1,0]) - 1
         if releaseweek == 52:
             releaseweek = 0
-        releaseyear = j//365
-        for i in range(len(x.T)):
-            #weeks in real time, releaseday + travel days
-            week = int(t[id1,i]) - 1
+        releaseyear = i//365
+        for j in range(len(x.T)):
+            #weeks in real time
+            week = int(t[id1,j]) - 1
             if week == 52:
                 week = 0
-            hist_day = np.histogram2d(x[100*j:100*(j+1),i], y[100*j:100*(j+1),i], bins=[lon, lat])[0]
+            hist_day = np.histogram2d(x[100*i:100*(i+1),j], y[100*i:100*(i+1),j], bins=[lon, lat])[0]
             hist_day = hist_day.T
             #unnormalized posterior, hist_day is the likelihood of all particles released on day j
             #multiplied with the right week (time-depedent prior)
             f_post_cells_nn[releaseweek, releaseyear :, :] += hist_day * f_prior_week[week,:,:] 
     #coastal and river don't have time-dependent prior; so just calculate likelihood per release week
+    #loop over particles
     for i in range(len(x)):
         releaseweek = int(t[i,0]) - 1
         if releaseweek == 52:
@@ -304,28 +306,16 @@ def find_sourceprobs_temp(x, y, lon, lat):
                 cr_i = c_i + r_i
                 c_post_list_n[i,k,l] = np.nansum(cr_i)
     
-    c_post_list_n_sdev = np.empty((10,52))
-    c_post_list_n_cv = np.empty((10,52))
-    f_post_list_n_sdev = np.empty((5,52))
-    f_post_list_n_cv = np.empty((5,52))
-    
-    for i in range(52):
-        for j in range(10):
-            c_post_list_n_year[j,i] = np.mean(c_post_list_n[j,i,:])
-            c_post_list_n_sdev[j,i] = np.std(c_post_list_n[j,i,:])
-            c_post_list_n_cv[j,i] = c_post_list_n_sdev[j,i] / c_post_list_n_year[j,i]
-    
-        for j in range(5):
-            f_post_list_n_year[j,i] = np.mean(f_post_list_n[j,i,:])
-            f_post_list_n_sdev[j,i] = np.std(f_post_list_n[j,i,:])
-            f_post_list_n_cv[j,i] = f_post_list_n_sdev[j,i] / f_post_list_n_year[j,i]
-    cv_c = np.nanmean(c_post_list_n_cv)
-    cv_c_sdev = np.nanstd(c_post_list_n_cv)
-    cv_f = np.nanmean(f_post_list_n_cv)
-    cv_f_sdev = np.nanstd(f_post_list_n_cv)    
-    return f_post_list_n_year, c_post_list_n_year, cv_c, cv_c_sdev, cv_f, cv_f_sdev, f_post_cells_n, c_post_cells_n, r_post_cells_n
+    #take average over the 5 years
+    for k in range(52):
+        for i in range(10):
+            c_post_list_n_temp[i,k] = np.mean(c_post_list_n[i,k,:])  
+        for i in range(5):
+            f_post_list_n_temp[i,k] = np.mean(f_post_list_n[i,k,:])
+            
+    return f_post_list_n_temp, c_post_list_n_temp, f_post_cells_n, c_post_cells_n, r_post_cells_n
 
-f_post_list_n_year, c_post_list_n_year, cv_c, cv_c_sdev, cv_f, cv_f_sdev, f_post_cells_n_year, c_post_cells_n_year, r_post_cells_n_year = find_sourceprobs_temp(x,y,xbins,ybins)
+f_post_list_n_temp, c_post_list_n_temp, f_post_cells_n_temp, c_post_cells_n_temp, r_post_cells_n_temp = find_sourceprobs_temp(x,y,xbins,ybins)
 
 stop = timeit.default_timer()
 print('Time calculating temporal variability: ', stop - start)  
@@ -345,24 +335,25 @@ def find_sourceprobs_age(x, y, lon, lat):
     oob_pct = np.zeros(24)   
     start1 = timeit.default_timer()
     #again, first calculate fishery probabilities with time-dependent prior
-    for j in range(releasedays):
-        id1 = 100*j
+    for i in range(releasedays):
+        id1 = 100*i
         #-10 ugly solution, because 24*30 = 720, but I have 730 observations
-        for i in range(len(x.T) - 10):
+        for j in range(len(x.T) - 10):
             #assuming 30 days per month
-            age = i//30
-            week = int(t[id1,i]) - 1
+            age = j//30
+            #-1 since you are using indices
+            week = int(t[id1,j]) - 1
             if week == 52:
                 week = 0
-            hist_day = np.histogram2d(x[100*j:100*(j+1),i], y[100*j:100*(j+1),i], bins=[lon, lat])[0]
+            hist_day = np.histogram2d(x[100*i:100*(i+1),j], y[100*i:100*(i+1),j], bins=[lon, lat])[0]
             hist_day = hist_day.T
             #unnormalized posterior
             f_post_cells_nn[age, :, :] += hist_day * f_prior_week[week,:,:] 
     stop1 = timeit.default_timer()
     print('Time calculating fishery probabilities age: ', stop1 - start1)
     #calculate coastal probabilities with constant prior
+    #loop over particle age [months]
     for k in range(24):
-        print(k)
         #calculate likelihood per assumed particle age (months)
         likelihood = np.zeros((375,297))
         #only consider part of trajectory with right age
@@ -374,14 +365,13 @@ def find_sourceprobs_age(x, y, lon, lat):
         c_post_cells_nn[k,:,:] = likelihood * c_prior
         r_post_cells_nn[k,:,:] = likelihood * r_prior
         
-        #check how many particles are out of bounds, displaced to lon = -17.43 (arbitrary choice)
+        #check how many particles are out of bounds, located at NaN, NaN (lon,lat)
         #weigh fishing activity experienced by particles with that, to compensate for out-of-bounds behavior
-        arr = np.around(x[:,30*k:30*(k+1)], decimals = 2)
-        oob_count = np.count_nonzero(arr == -17.43)
+        oob_count = np.isnan(x[:,30*k:30*(k+1)]).sum()
         oob_pct[k] = ((oob_count/(30*len(x)))*100)         
         w = 100 - oob_pct[k]
         #total unnormalized probability for age k
-        total_p_week[k] = np.nansum(f_post_cells_nn[k,:,:]) / w[k]
+        total_p_week[k] = np.nansum(f_post_cells_nn[k,:,:]) / w
     posterior_av = np.mean(total_p_week)
     posterior_rel = total_p_week / posterior_av
     #again, to normalize to 40% avg over the year
@@ -397,9 +387,9 @@ def find_sourceprobs_age(x, y, lon, lat):
             r_i = r_post_cells_n[k] * coastalregions[:,:,i]
             cr_i = c_i + r_i
             c_post_list_n[i,k] = np.nansum(cr_i)
-    return f_post_list_n, c_post_list_n, f_post_cells_n, r_post_cells_n, c_post_cells_n, f_post_cells_nn, r_post_cells_nn, c_post_cells_nn
+    return f_post_list_n, c_post_list_n, f_post_cells_n, r_post_cells_n, c_post_cells_n
 
-f_post_list_n_age, c_post_list_n_age, f_post_cells_n_age, r_post_cells_n_age, c_post_cells_n_age, f_post_cells_nn_age, r_post_cells_nn_age, c_post_cells_nn_age = find_sourceprobs_age(x,y,xbins,ybins)
+f_post_list_n_age, c_post_list_n_age, f_post_cells_n_age, r_post_cells_n_age, c_post_cells_n_age = find_sourceprobs_age(x,y,xbins,ybins)
 
 stop = timeit.default_timer()
 print('Time calculating age variability: ', stop - start)
@@ -415,13 +405,13 @@ def find_sourceprobs_avg(x, y, lon, lat):
     r_post_cells_nn = np.empty((375,297))
     r_post_cells_n = np.empty((375,297))
     #again, first calculate fishery probabilities with time-dependent prior
-    for j in range(releasedays):
-        id1 = 100*j
-        for i in range(len(x.T)):
-            week = int(t[id1,i]) - 1
+    for i in range(releasedays):
+        id1 = 100*i
+        for j in range(len(x.T)):
+            week = int(t[id1,j]) - 1
             if week == 52:
                 week = 0
-            hist_day = np.histogram2d(x[100*j:100*(j+1),i], y[100*j:100*(j+1),i], bins=[lon, lat])[0]
+            hist_day = np.histogram2d(x[100*i:100*(i+1),j], y[100*i:100*(i+1),j], bins=[lon, lat])[0]
             hist_day = hist_day.T
             #unnormalized posterior
             f_post_cells_nn += hist_day * f_prior_week[week,:,:] 
@@ -439,7 +429,7 @@ def find_sourceprobs_avg(x, y, lon, lat):
     f_post_cells_n = 40*f_post_cells_nn/np.sum(f_post_cells_nn)
     r_post_cells_n = 10*r_post_cells_nn/np.sum(r_post_cells_nn)
     c_post_cells_n = 50*c_post_cells_nn/np.sum(c_post_cells_nn)
-   return f_post_cells_n, r_post_cells_n, c_post_cells_n
+    return f_post_cells_n, r_post_cells_n, c_post_cells_n
 
 f_post_cells_n_avg, r_post_cells_n_avg, c_post_cells_n_avg = find_sourceprobs_avg(x,y,xbins,ybins) 
 
@@ -496,36 +486,34 @@ cbar3 = plt.colorbar(plt1,cax=cax3,orientation='horizontal', ticks=[0.001,0.01,0
 cbar2 = plt.colorbar(plt2,cax=cax2,orientation='horizontal', ticks=[0.001,0.01,0.1,1])
 cbar1 = plt.colorbar(plt3,cax=cax1,orientation='horizontal',ticks=[0.01, 0.1, 1, 10])
 ax.scatter(3.4, 51.6, marker='X', c='y', s=80, zorder=3) 
-#ax.set_title('Source probabilities for particles beaching near marker between 2015 and 2020')
 cax3.set_title(r'Coastal probabilities [%]')
 cax2.set_title(r'Fishery probabilities [%]')   
 cax1.set_title(r'River probabilities [%]') 
-#plt.savefig(outpath + 'totalprobs.jpg')
 
 stop = timeit.default_timer()
 print('Time in cell plotting Fig. 2: ', stop - start)
 #%% Plotting fig 3
-datatotal = np.empty((15,52))
+datatotal_temp = np.empty((15,52))
 
-datatotal[0:10,:] = c_post_list_n_year.copy()
-datatotal[10:,:]= f_post_list_n_year.copy()
+datatotal_temp[0:10,:] = c_post_list_n_temp.copy()
+datatotal_temp[10:,:]= f_post_list_n_temp.copy()
 
 labels = ["UK E", "UK SW", "UK SE", "SC", "IR", "NL", "BE", "FR N",  "FR Brit.", "Other (coastal)", "Channel W", "Channel E", "NL", "North Sea", "Other (fishery)"]
 colorlist= ['#1f77b4','#d62728','#2ca02c','#8c564b','#bcbd22','#ff7f0e','#9467bd','#7f7f7f','#e377c2','k','#1f77b4','#2ca02c','#ff7f0e','#d62728','w']  
             
 fig, ax = plt.subplots(figsize=(10,4))
 ax.set_ylim(0,102)
-X = np.arange(datatotal.shape[1])
+X = np.arange(datatotal_temp.shape[1])
 for i in range(10):
-    ax.bar(X, datatotal[i],
-    bottom = np.sum(datatotal[:i], axis = 0), label=labels[i], color=colorlist[i])
+    ax.bar(X, datatotal_temp[i],
+    bottom = np.sum(datatotal_temp[:i], axis = 0), label=labels[i], color=colorlist[i])
 for i in range(10,15):
     if i == 14:
         edgecolor = 'k'
     else:
         edgecolor=None
-    ax.bar(X, datatotal[i],
-    bottom = np.sum(datatotal[:i], axis = 0), label=labels[i], edgecolor = edgecolor, color=colorlist[i], hatch='///')
+    ax.bar(X, datatotal_temp[i],
+    bottom = np.sum(datatotal_temp[:i], axis = 0), label=labels[i], edgecolor = edgecolor, color=colorlist[i], hatch='///')
            
 ax.set_xlabel("Beaching date")
 ax.set_ylabel("Source probability [%]")
@@ -537,7 +525,6 @@ ax.legend(handles[::-1], labels[::-1], bbox_to_anchor=(1,0.08), loc="lower right
 box3 = ax.get_position()
 ax.set_position([box3.x0, box3.y0, box3.width * 0.9, box3.height])
 #%% Plotting fig 4
-
 datatotal_age = np.empty((15,24))
 
 datatotal_age[0:10,:] = c_post_list_n_age.copy()
@@ -558,6 +545,7 @@ for i in range(10,15):
     bottom = np.sum(datatotal_age[:i], axis = 0), label=labels[i], edgecolor = edgecolor, color=colorlist[i], hatch='///')
            
 ax.set_xlabel("Assumed particle age [months]")
+ax.set_xticks([0, 3, 6, 9, 12, 15, 18, 21])
 ax.set_ylabel("Source probability [%]")
 handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles[::-1], labels[::-1], bbox_to_anchor=(1,0.08), loc="lower right", 
