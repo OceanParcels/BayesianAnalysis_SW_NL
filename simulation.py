@@ -6,7 +6,7 @@ from parcels.tools.converters import Geographic, GeographicPolar
 import math
 import parcels.rng as ParcelsRandom
 
-file_coast = 'Datafiles_Mikael//datafile_coastMask_297x_375y'
+file_coast = 'Datafiles//datafile_coastMask_297x_375y'
 coastMask  = np.genfromtxt(file_coast, delimiter=None)
 
 startdate = '2020-01-01'
@@ -27,7 +27,7 @@ startlat = 51.566
 #fw = -1 means a backward simulation
 fw = -1
 
-outfile = str(startplace + '_'+ startdate + '_' + str(runtime_days))
+outfile = str(startplace + '_'+ startdate + '_')
 
 #find nearest coastal cell to defined beaching location, to release in water        
 def nearestcoastcell(lon,lat):
@@ -78,8 +78,8 @@ class PlasticParticle(JITParticle):
     V_tide = Variable('V_tide', dtype=np.float32, initial=0., to_write=False)   
 #%%
 #---------------unbeaching
-file_landCurrent_U = 'Datafiles_Mikael/datafile_landCurrentU_%ix_%iy' % (len(lons),len(lats))
-file_landCurrent_V = 'Datafiles_Mikael/datafile_landCurrentV_%ix_%iy' % (len(lons),len(lats))
+file_landCurrent_U = 'Datafiles/datafile_landCurrentU_%ix_%iy' % (len(lons),len(lats))
+file_landCurrent_V = 'Datafiles/datafile_landCurrentV_%ix_%iy' % (len(lons),len(lats))
 
 landCurrent_U = np.loadtxt(file_landCurrent_U)
 landCurrent_V = np.loadtxt(file_landCurrent_V)
@@ -133,7 +133,7 @@ def TidalMotionM2S2K1O1(particle, fieldset, time):
         V_S2 = 2*T0
         V_K1 = T0 + h0 - 0.5*math.pi
         V_O1 = T0 + h0 - 2*s0 + 0.5*math.pi
-        #these are added for nonlinear (Bram)
+        #nonlinear
         V_M4 = 4*T0 - 4*s0 + 4*h0
         V_MS4 = 4*T0 - 2*s0 + 2*h0
         V_S4 = 4*T0
@@ -158,7 +158,7 @@ def TidalMotionM2S2K1O1(particle, fieldset, time):
         f_K1 = math.sqrt(0.8965*(math.sin(2*I))**2 + 0.6001*math.sin(2*I)*math.cos(nu) + 0.1006)
         u_O1 = 2*xi - nu
         f_O1 = math.sin(I)*(math.cos(0.5*I))**2/0.3800
-        #these are added for nonlinear (Bram)
+        #nonlinear
         u_M4 = 4*xi - 4*nu
         f_M4 = (f_M2)**2
         u_MS4 = 2*xi - 2*nu
@@ -418,7 +418,7 @@ for i in range(3):
                                  lon = fieldMesh_x_re,
                                  lat = fieldMesh_y_re)
     
-    output_file = pset.ParticleFile(name="results/{}.nc".format(outfile+'release'+str(i)), outputdt=timedelta(hours=24))
+    output_file = pset.ParticleFile(name="results/{}.nc".format(outfile + 'r' + str(i+1) + '_run'), outputdt=timedelta(hours=24))
       
      
     kernels = (pset.Kernel(AdvectionRK4) + pset.Kernel(StokesUV) + pset.Kernel(BeachTesting) + pset.Kernel(UnBeaching)
@@ -438,7 +438,7 @@ for i in range(3):
     pset = ParticleSet.from_particlefile(fieldset=fieldset, pclass=PlasticParticle,
                                           filename="results/{}.nc".format(outfile+str(i)), restart=True, restarttime = np.nanmin)
     
-    output_file2 = pset.ParticleFile(name="results/{}_2.nc".format(outfile+'release'+str(i)), outputdt=timedelta(hours=24))
+    output_file2 = pset.ParticleFile(name="results/{}.nc".format(outfile + 'r' + str(i+1) + '_rerun'), outputdt=timedelta(hours=24))
     
     pset.execute(kernels,
                  runtime=timedelta(days=runtime_days),
